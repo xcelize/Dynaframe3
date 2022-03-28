@@ -28,6 +28,9 @@ using SkiaSharp;
 using MetadataExtractor;
 using Avalonia.Rendering.SceneGraph;
 using Dynaframe3.TransitionTypes;
+using Dynaframe3.Services;
+using Dynaframe3.Models;
+using Dynaframe3.Services.Interface;
 
 namespace Dynaframe3
 {
@@ -37,9 +40,11 @@ namespace Dynaframe3
         TextBlock tb;
         Window mainWindow;
         Panel mainPanel;
+        ProgressBar ProgressBar;
 
         // Engines
-        internal PlayListEngine playListEngine;
+        //internal PlayListEngine playListEngine;
+        internal SyncApiEngine syncApiEngine;
         internal SimpleHTTPServer server;
 
         /// <summary>
@@ -54,15 +59,21 @@ namespace Dynaframe3
         DateTime lastUpdated = DateTime.Now.Subtract(TimeSpan.FromDays(1976));
         DateTime timeStarted = DateTime.Now;
         public bool IsPaused = false;
-
         // used for fading in/out fronttext
         DoubleTransition fadeTransition;
-
         Transform rotationTransform;
+
+        private readonly IPlaylistService _playlistService;
+        private readonly IFichierService _fichierService;
+        private DateTime lastApiUpdate;
+        private bool isDownload = false;
 
         public MainWindow()
         {
-            playListEngine = new PlayListEngine();
+            _fichierService = new FichierService();
+            _playlistService = new PlaylistService();
+            //playListEngine = new PlayListEngine();
+            lastApiUpdate = DateTime.UtcNow;
             InitializeComponent();
             SetupWebServer();
         }
@@ -119,6 +130,8 @@ namespace Dynaframe3
             tb.Transitions = new Transitions();
             tb.Transitions.Add(fadeTransition);
             tb.Padding = new Thickness(30);
+
+            ProgressBar = this.FindControl<ProgressBar>("progress");
 
             VideoPlayer.MainPanelHandle = this.mainPanel;
             VideoPlayer.MainWindowHandle = this.mainWindow;
@@ -182,6 +195,7 @@ namespace Dynaframe3
             lastUpdated = DateTime.Now;
             tb.Transitions.Add(fadeTransition);
         }
+
         public void GoToFirstImage()
         {
             tb.Transitions.Clear();
@@ -191,6 +205,7 @@ namespace Dynaframe3
             lastUpdated = DateTime.Now;
             tb.Transitions.Add(fadeTransition);
         }
+
         public void Pause()
         {
             if (IsPaused)
@@ -225,6 +240,7 @@ namespace Dynaframe3
                     mainWindow.Opacity = 0;
                 }
             }
+            
             if (e.Key == Avalonia.Input.Key.U)
             {
                 if (mainPanel.Opacity != 1)
@@ -263,7 +279,10 @@ namespace Dynaframe3
                 tb.Opacity = 0;
                 AppSettings.Default.InfoBarState = AppSettings.InfoBar.OFF;
             }
-
+            if (e.Key == Avalonia.Input.Key.M)
+            {
+                makeMaj();
+            }
             if (e.Key == Avalonia.Input.Key.Right)
             {
                 GoToNextImage();
@@ -277,10 +296,7 @@ namespace Dynaframe3
             {
                 Pause();
             }
-
-
             UpdateInfoBar();
-
         }
 
         /// <summary>
@@ -288,7 +304,7 @@ namespace Dynaframe3
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="e"></param>
-        private void Timer_Tick(object sender, EventArgs e)
+        private async void Timer_Tick(object sender, EventArgs e)
         {
             if (IsPaused)
             {
@@ -334,6 +350,39 @@ namespace Dynaframe3
                 }
             }
 
+            var player = await _fichierService.getPlayerById(1);
+            Logger.LogComment("[INFO]: Mise à jour ? " + player?.Update.ToString());
+            if (player != null)
+            {
+                if (player.Update && !isDownload)
+                {
+                    isDownload = true;
+                    List<Task> tasks = new List<Task>();
+                    foreach (Fichiers fichier in player.Fichiers)
+                    {
+                        await _fichierService.downloadFile(fichier);
+                    }
+                    foreach (string dir in AppSettings.Default.SearchDirectories)
+                    {
+                        if (System.IO.Directory.Exists(dir))
+                        {
+                            foreach (string file in System.IO.Directory.GetFiles(dir))
+                            {
+                                FileInfo fileInfo = new FileInfo(file);
+                                if (player.Fichiers.FirstOrDefault(e => e.Nom == fileInfo.Name) == null)
+                                {
+                                    await _fichierService.deleteFile(file);
+                                }
+                            }
+                        }
+                    }
+                    player.Update = false;
+                    await _fichierService.putPlayer(player);
+                    playListEngine.RebuildPlaylist();
+                    isDownload = false;
+                    Pause();
+                }
+            }
 
             // check transpired time against transition time...
             if ((DateTime.Now.Subtract(lastUpdated).TotalMilliseconds > AppSettings.Default.SlideshowTransitionTime) || GoToNext == true)
@@ -359,6 +408,7 @@ namespace Dynaframe3
             slideTimer.Start(); // start next iterations...this prevents reentry...
 
         }
+        
         public void PlayFile(string path)
         {
             PlayFile(path, AppSettings.Default.FadeTransitionTime);
@@ -392,7 +442,6 @@ namespace Dynaframe3
             }
 
         }
-
 
         private void UpdateInfoBar()
         {
@@ -456,7 +505,6 @@ namespace Dynaframe3
                 } // end if
             });
         }
-
 
         public void SetupWebServer()
         {
@@ -538,6 +586,17 @@ namespace Dynaframe3
             mainWindow.InvalidateMeasure();
             AppSettings.Default.OXMOrientnation = "--orientation " + degrees.ToString();
 
+        }
+    
+        public async void makeMaj()
+        {
+            Pause();
+            tb.Text += " - Mise à jour";
+            bool MajSuccess = await syncApiEngine.downloadFiles();
+            if (MajSuccess)
+            {
+                Pause();
+            }
         }
     }
 }

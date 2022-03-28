@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Dynaframe3.Models;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -27,6 +28,13 @@ namespace Dynaframe3
             var temp = list[i];
             list[i] = list[j];
             list[j] = temp;
+        }
+
+        public static List<MediaFile> ShuffleMediaElement(List<MediaFile> mediaFiles) 
+        {
+            var random = new Random();
+            var randomized = mediaFiles.OrderBy(x => random.Next());
+            return randomized.ToList();
         }
 
 

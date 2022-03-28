@@ -218,8 +218,6 @@ namespace Dynaframe3
                         AppSettings.Default.Save();
                         break;
                     }
-
-
                 default:
                     {
 

@@ -148,12 +148,7 @@ namespace Dynaframe3
                     videoProcess = null;
 
                 }
-                else
-                {
-                    videoProcess.Close();
-                    videoProcess.Dispose();
-                    videoProcess = null;
-                }
+
             }
             catch (Exception)
             {

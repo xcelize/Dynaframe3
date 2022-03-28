@@ -25,6 +25,9 @@ namespace Dynaframe3
             Shuffle = false;
             VideoVolume = false;
 
+            Email = "alexis.petraz@outlook.com";
+            MotDePasse = "alexis";
+
             Rotation = 0;
             NumberOfSecondsToShowIP = 10;
 
@@ -128,6 +131,8 @@ namespace Dynaframe3
         /// Should videos play with volume? Default off.
         /// </summary>
         public bool VideoVolume { get; set; }
+        public string Email { get; private set; }
+        public string MotDePasse { get; private set; }
 
         /// <summary>
         /// WebUI setting around if the directories should be expanded.
@@ -206,7 +211,7 @@ namespace Dynaframe3
         /// <summary>
         /// Track if we should Refresh the Directories or not (for changes such as added files)
         /// </summary>
-        public bool RefreshDirctories { get; set; }
+        public bool RefreshDirctories { get; set; } = true;
 
         /// <summary>
         /// The public port the webUI should be running on. This setting will require a restart

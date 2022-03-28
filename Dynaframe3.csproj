@@ -267,7 +267,7 @@
     <Folder Include="web\images\" />
     <Folder Include="web\css\" />
     <Folder Include="web\js\" />
-    <Folder Include="web\uploads\" />
+    <Folder Include="web\uploads\test\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Condition=" '$(EnableDefaultCompileItems)' == 'true' " Update="AppSettings.cs">
