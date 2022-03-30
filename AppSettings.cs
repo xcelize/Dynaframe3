@@ -32,6 +32,10 @@ namespace Dynaframe3
             NumberOfSecondsToShowIP = 10;
 
             OXMOrientnation = "--orientation 0";
+            ApiSyncDirectory = new List<string>()
+            {
+                AppDomain.CurrentDomain.BaseDirectory
+            };
             SearchDirectories = new List<string>() { };
             CurrentPlayList = new List<string>() { };
             RemoteClients = new List<string>() { };
@@ -93,12 +97,12 @@ namespace Dynaframe3
                     if (_appSettings.SearchDirectories.Count == 0)
                     {
                         // Firstrun...if there are no search directories, add in mypictures and subfolders
-                        _appSettings.SearchDirectories.Add(SpecialDirectories.MyPictures);
-                        _appSettings.CurrentPlayList.Clear();
-                        foreach (string dir in Directory.GetDirectories(SpecialDirectories.MyPictures))
-                        {
-                            _appSettings.CurrentPlayList.Add(dir);
-                        }
+                        //_appSettings.SearchDirectories.Add(SpecialDirectories.MyPictures);
+                        //_appSettings.CurrentPlayList.Clear();
+                        //foreach (string dir in Directory.GetDirectories(SpecialDirectories.MyPictures))
+                        //{
+                        //    _appSettings.CurrentPlayList.Add(dir);
+                        //}
                         string dirPath = AppDomain.CurrentDomain.BaseDirectory + "web/uploads/";
                         _appSettings.SearchDirectories.Add(dirPath);
                         foreach (string dir in Directory.GetDirectories(dirPath))
@@ -295,5 +299,10 @@ namespace Dynaframe3
         /// The margin the blurbox should use when displayed. Setting this to negative can scale the background to hide text/edges.
         /// </summary>
         public double BlurBoxMargin { get; set; }
+
+        public List<string> ApiSyncDirectory { get; set; }
+
+        //public string noFilesFound { get; set; }
+
     }
 }

@@ -34,7 +34,7 @@ namespace Dynaframe3.Services
             using (var stream = await fichierResponse.Content.ReadAsStreamAsync())
             {
                 Logger.LogComment("[Info]: Nous téléchargons le fichier " + fichier.Nom);
-                FileInfo fileInfo = new FileInfo("C:\\Users\\Alexis\\source\\repos\\Dynaframe3\\web\\uploads\\test\\" + fichier.Nom);
+                FileInfo fileInfo = new FileInfo(Path.Combine(AppContext.BaseDirectory, @"web\uploads", fichier.Nom));
                 using (var fs = fileInfo.OpenWrite())
                 { 
                     await stream.CopyToAsync(fs);
@@ -48,7 +48,7 @@ namespace Dynaframe3.Services
             if (!isAuth)
             {
                 Logger.LogComment("[WARNING]: L'utilisateur ne semble pas connecter");
-                throw new Exception("L'utilisateur de ce player n'est pas connecté");
+                return null;
             }
             var response = await httpClient.GetAsync("http://localhost:44471/api/Players/" + id.ToString());
             if (response != null)
@@ -64,7 +64,7 @@ namespace Dynaframe3.Services
             if (!isAuth)
             {
                 Logger.LogComment("[WARNING]: L'utilisateur ne semble pas connecter");
-                throw new Exception("L'utilisateur de ce player n'est pas connecté");
+                return null;
             }
             var playerDTO = new StringContent(JsonConvert.SerializeObject(player), Encoding.UTF8, "application/json");
             var response = await httpClient.PutAsync("http://localhost:44471/api/Players/" + player.Id.ToString(), new StringContent(JsonConvert.SerializeObject(player), Encoding.UTF8, "application/json"));
@@ -79,7 +79,7 @@ namespace Dynaframe3.Services
             return null;
         }
     
-        public  async Task deleteFile(string chemin)
+        public async Task deleteFile(string chemin)
         {
             FileInfo fichier = new FileInfo(chemin);
             if (fichier.Exists)

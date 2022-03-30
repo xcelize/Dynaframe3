@@ -43,7 +43,6 @@ namespace Dynaframe3
         ProgressBar ProgressBar;
 
         // Engines
-        //internal PlayListEngine playListEngine;
         internal SyncApiEngine syncApiEngine;
         internal SimpleHTTPServer server;
 
@@ -65,6 +64,8 @@ namespace Dynaframe3
 
         private readonly IPlaylistService _playlistService;
         private readonly IFichierService _fichierService;
+        private readonly VideoPlayer _videoPlayer;
+     
         private DateTime lastApiUpdate;
         private bool isDownload = false;
 
@@ -72,7 +73,7 @@ namespace Dynaframe3
         {
             _fichierService = new FichierService();
             _playlistService = new PlaylistService();
-            //playListEngine = new PlayListEngine();
+            _videoPlayer = new VideoPlayer(this, ref mainPanel);
             lastApiUpdate = DateTime.UtcNow;
             InitializeComponent();
             SetupWebServer();
@@ -133,8 +134,8 @@ namespace Dynaframe3
 
             ProgressBar = this.FindControl<ProgressBar>("progress");
 
-            VideoPlayer.MainPanelHandle = this.mainPanel;
-            VideoPlayer.MainWindowHandle = this.mainWindow;
+            //VideoPlayer.MainPanelHandle = this.mainPanel;
+            //VideoPlayer.MainWindowHandle = this.mainWindow;
 
             string intro;
             if ((AppSettings.Default.Rotation == 0) || AppSettings.Default.Rotation == 180)
@@ -155,8 +156,7 @@ namespace Dynaframe3
             
             Logger.LogComment("Initializing database..");
             sw.Start();
-            playListEngine.InitializeDatabase();
-            playListEngine.RebuildPlaylist();
+            _playlistService.Rebuild();
 
             sw.Stop();
             Logger.LogComment("Database initialized. Took: " + sw.ElapsedMilliseconds + " ms." );
@@ -179,19 +179,20 @@ namespace Dynaframe3
         public void GoToNextImage()
         {
             tb.Transitions.Clear();
-            playListEngine.GoToNext();
-            PlayFile(playListEngine.CurrentMediaFile.Path, 500);
+            _playlistService.Next();
+            PlayFile(_playlistService.Current().MediaFile.Path, 500);
             lastUpdated = DateTime.Now;
             tb.Transitions.Add(fadeTransition);
         }
+        
         /// <summary>
         /// Goes back to the previous image. used for keyboard shortcuts or API calls. Keeps a small delay
         /// </summary>
         public void GoToPreviousImage()
         {
             tb.Transitions.Clear();
-            playListEngine.GoToPrevious();
-            PlayFile(playListEngine.CurrentMediaFile.Path, 500);
+            _playlistService.Previous();
+            PlayFile(_playlistService.Current().MediaFile.Path, 500);
             lastUpdated = DateTime.Now;
             tb.Transitions.Add(fadeTransition);
         }
@@ -199,8 +200,8 @@ namespace Dynaframe3
         public void GoToFirstImage()
         {
             tb.Transitions.Clear();
-            playListEngine.GoToFirstFile();
-            PlayFile(playListEngine.GetCurrentFile().Path, 500);
+            _playlistService.First();
+            PlayFile(_playlistService.Current().MediaFile.Path, 500);
 
             lastUpdated = DateTime.Now;
             tb.Transitions.Add(fadeTransition);
@@ -255,7 +256,6 @@ namespace Dynaframe3
 
             if (e.Key == Avalonia.Input.Key.D)
             {
-                playListEngine.DumpPlaylistToLog();
             }
 
             if (e.Key == Avalonia.Input.Key.F)
@@ -278,10 +278,6 @@ namespace Dynaframe3
             {
                 tb.Opacity = 0;
                 AppSettings.Default.InfoBarState = AppSettings.InfoBar.OFF;
-            }
-            if (e.Key == Avalonia.Input.Key.M)
-            {
-                makeMaj();
             }
             if (e.Key == Avalonia.Input.Key.Right)
             {
@@ -322,9 +318,9 @@ namespace Dynaframe3
                     Logger.LogComment("Timer_Tick: Reload settings was true... loading settings");
                     AppSettings.Default.ReloadSettings = false;
                     Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        RefreshSettings();
-                    });
+                      {
+                          RefreshSettings();
+                      });
                 }
                 catch (Exception exc)
                 {
@@ -335,15 +331,15 @@ namespace Dynaframe3
             if (AppSettings.Default.RefreshDirctories)
             {
                 AppSettings.Default.RefreshDirctories = false;
-                playListEngine.InitializeDatabase();
-                playListEngine.RebuildPlaylist();
+                _playlistService.Rebuild();
             }
 
             UpdateInfoBar();
+
             bool GoToNext = false;
-            if ((playListEngine.CurrentMediaFile != null) && (playListEngine.CurrentMediaFile.Type == "Video"))
+            if ((_playlistService.Current()?.MediaFile != null) && (_playlistService.Current()?.MediaFile.Type == "Video"))
             {
-                if (!VideoPlayer.CheckStatus(false))
+                if (!_videoPlayer.CheckStatus(false))
                 {
                     // Video exited before we expected it to! Recover gracefully
                     GoToNext = true;
@@ -378,9 +374,8 @@ namespace Dynaframe3
                     }
                     player.Update = false;
                     await _fichierService.putPlayer(player);
-                    playListEngine.RebuildPlaylist();
+                    _playlistService.Rebuild();
                     isDownload = false;
-                    Pause();
                 }
             }
 
@@ -388,22 +383,17 @@ namespace Dynaframe3
             if ((DateTime.Now.Subtract(lastUpdated).TotalMilliseconds > AppSettings.Default.SlideshowTransitionTime) || GoToNext == true)
             {
                 // See if a video is playing...
-                if (VideoPlayer.CheckStatus(true))
+                if (_videoPlayer.CheckStatus(true))
                 {
                     // Video is still playing, tick off the next timer interval for now.
                     slideTimer.Start();
                     return;
                 }
                 lastUpdated = DateTime.Now;
-                playListEngine.GoToNext();
-                Logger.LogComment("Next file is: " + playListEngine.CurrentMediaFile.Path);
+                _playlistService.Next();
+                Logger.LogComment("Next file is: " + _playlistService.Current()?.MediaFile.Path);
 
-                // sync frame call
-                if ((AppSettings.Default.IsSyncEnabled) && (SyncedFrame.SyncEngine.syncedFrames.Count > 0))
-                {
-                    SyncedFrame.SyncEngine.SyncFrames(playListEngine.CurrentMediaFile.Path);
-                }
-                PlayFile(playListEngine.CurrentMediaFile.Path);
+                PlayFile(_playlistService.Current().MediaFile.Path);
             }
             slideTimer.Start(); // start next iterations...this prevents reentry...
 
@@ -418,13 +408,13 @@ namespace Dynaframe3
         {
             Logger.LogComment("PlayFile() called with TransitionTime=" + transitionTime + " and path: " + path);
             PlayListItemType type = PlayListEngineHelper.GetPlayListItemTypeFromPath(path);
-            VideoPlayer.KillVideoPlayer(); // Kill this...if this is called from gotonext / gotoprevious it can cause bad effects.
+            _videoPlayer.KillVideoPlayer(); // Kill this...if this is called from gotonext / gotoprevious it can cause bad effects.
             try
             {
                 // TODO: Try to 'peek' at next file, if video, then slow down more
-                if (playListEngine.CurrentMediaFile.Type == "Video")
-                {
-                    VideoPlayer.PlayVideo(path);
+                if (/*playListEngine.CurrentMediaFile.Type*/ _playlistService.Current().MediaFile.Type == "Video")
+                {   
+                    _videoPlayer.PlayVideo(path);
                 }
                 else
                 {
@@ -466,7 +456,7 @@ namespace Dynaframe3
                         case (AppSettings.InfoBar.FileInfo):
                             {
                                 tb.Opacity = 1;
-                                FileInfo f = new FileInfo(playListEngine.CurrentMediaFile.Path);
+                                FileInfo f = new FileInfo(_playlistService.Current().MediaFile.Path);
                                 string fData = f.Name;
                                 IEnumerable<MetadataExtractor.Directory> directories = ImageMetadataReader.ReadMetadata(f.FullName);
 
@@ -487,7 +477,7 @@ namespace Dynaframe3
                         case (AppSettings.InfoBar.ExifData):
                             {
                                 tb.Opacity = 1;
-                                tb.Text = playListEngine.CurrentMediaFile.Title + "\r\n" + playListEngine.CurrentMediaFile.Author;
+                                tb.Text = _playlistService.Current().MediaFile.Path + "\r\n" + _playlistService.Current().MediaFile.Path;
                                 break;
                             }
                         default:
@@ -588,15 +578,5 @@ namespace Dynaframe3
 
         }
     
-        public async void makeMaj()
-        {
-            Pause();
-            tb.Text += " - Mise à jour";
-            bool MajSuccess = await syncApiEngine.downloadFiles();
-            if (MajSuccess)
-            {
-                Pause();
-            }
-        }
     }
 }

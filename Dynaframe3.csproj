@@ -12,6 +12,7 @@
     <AssemblyVersion>2.24.0.0</AssemblyVersion>
     <Configurations>Release;Debug</Configurations>
     <FileVersion>2.24.0.0</FileVersion>
+    <DebugType>portable</DebugType>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType></DebugType>
@@ -19,6 +20,12 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+  <ItemGroup>
+    <AvaloniaXaml Remove="web\uploads\test\**" />
+    <Compile Remove="web\uploads\test\**" />
+    <EmbeddedResource Remove="web\uploads\test\**" />
+    <None Remove="web\uploads\test\**" />
+  </ItemGroup>
   <ItemGroup>
     <None Remove="appsettings.json" />
     <None Remove="dynaframe.desktop" />
@@ -267,11 +274,21 @@
     <Folder Include="web\images\" />
     <Folder Include="web\css\" />
     <Folder Include="web\js\" />
-    <Folder Include="web\uploads\test\" />
   </ItemGroup>
   <ItemGroup>
     <Compile Condition=" '$(EnableDefaultCompileItems)' == 'true' " Update="AppSettings.cs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Compile>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

@@ -9,19 +9,24 @@ using System.Threading.Tasks;
 
 namespace Dynaframe3
 {
-
-
-    static class VideoPlayer
+    public class VideoPlayer
     {
-        static public bool IsPlaying;
-        static private Process videoProcess; // handle to the video Player
-        static public Window MainWindowHandle;
-        static public Panel MainPanelHandle;
+        private bool _isPlaying;
+        private Process? _videoProcess;
+        private readonly Window _window;
+        private readonly Panel _panel;
 
-        public static void PlayVideo(string VideoPath)
+        public VideoPlayer(Window pMainWindow, ref Panel pPanel) 
         {
-            IsPlaying = true;
-            Logger.LogComment("Entering PlayVideoFile with Path: " + VideoPath);
+            _window = pMainWindow;
+            _panel = pPanel;
+            _videoProcess = null;
+        }
+
+        public void PlayVideo(string path)
+        {
+            _isPlaying = true;
+            Logger.LogComment("Entering PlayVideoFile with Path: " + path);
 
             ProcessStartInfo pInfo = new ProcessStartInfo();
             pInfo.WindowStyle = ProcessWindowStyle.Maximized;
@@ -40,69 +45,63 @@ namespace Dynaframe3
                     pInfo.Arguments += "--vol -6000 ";
                 }
 
-                pInfo.Arguments += "\"" + VideoPath + "\"";
-                Logger.LogComment("DF Playing: " + VideoPath);
+                pInfo.Arguments += "\"" + path + "\"";
+                Logger.LogComment("DF Playing: " + path);
                 Logger.LogComment("OMXPLayer args: " + pInfo.Arguments);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 pInfo.UseShellExecute = true;
                 pInfo.FileName = "wmplayer.exe";
-                pInfo.Arguments = "\"" + VideoPath + "\"";
+                pInfo.Arguments = "\"" + path + "\"";
                 pInfo.Arguments += " /fullscreen";
                 Logger.LogComment("Looking for media in: " + pInfo.Arguments);
             }
 
-
-            videoProcess = new Process();
-            videoProcess.StartInfo = pInfo;
+            _videoProcess = new Process();
+            _videoProcess.StartInfo = pInfo;
             Logger.LogComment("PlayVideoFile: Starting player...");
-            videoProcess.Start();
+            _videoProcess.Start();
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                MainWindowHandle.Opacity = 0;
+                _window.Opacity = 0;
             });
 
             // Give video player time to start, then fade out to reveal it...
-            System.Threading.Thread.Sleep(1100);
+            System.Threading.Thread.Sleep(1000);
             Logger.LogComment("PlayVideoFile: Fading Foreground to reveal video player.");
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                MainWindowHandle.Opacity = 0;
+                _window.Opacity = 0;
             });
         }
 
-        /// <summary>
-        /// Returns true if the video is playing, false if it isn't...
-        /// </summary>
-        /// <returns></returns>
-        public static bool CheckStatus(bool ForceTransition)
+        public bool CheckStatus(bool ForceTransition)
         {
-            if ((videoProcess == null) || (videoProcess.HasExited))
+            if ((_videoProcess == null) || (_videoProcess.HasExited))
             {
-                IsPlaying = false;
+                _isPlaying = false;
                 KillVideoPlayer();
 
                 Logger.LogComment("VideoPlayer CheckStatus returning false..: Video has exited!");
                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    MainPanelHandle.Opacity = 1;
-                    MainWindowHandle.Opacity = 1;
+                    _panel.Opacity = 1;
+                    _window.Opacity = 1;
                 });
                 return false;
             }
-            else if((AppSettings.Default.PlaybackFullVideo == false) && (ForceTransition))
+            else if ((AppSettings.Default.PlaybackFullVideo == false) && (ForceTransition))
             {
                 // We should interupt the video...check status gets called at the slide transition time.
                 Logger.LogComment("VideoPlayer is closing playing video to transition to images..");
                 Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    MainPanelHandle.Opacity = 1;
-                    MainWindowHandle.Opacity = 1;
+                    _window.Opacity = 1;
+                    _panel.Opacity = 1;
                 });
-                VideoPlayer.KillVideoPlayer();
+                KillVideoPlayer();
                 return true;
-
             }
             else
             {
@@ -110,26 +109,27 @@ namespace Dynaframe3
             }
         }
 
-        public static void KillVideoPlayer()
+        public void KillVideoPlayer()
         {
             Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                MainPanelHandle.Opacity = 1;
-                MainWindowHandle.Opacity = 1;
+                _panel.Opacity = 1;
+                _window.Opacity = 1;
             });
             Logger.LogComment("KillVideoPlayer - Entering Method.");
             try
             {
-                if (videoProcess != null)
+                if (_videoProcess != null)
                 {
                     try
                     {
-                        videoProcess.CloseMainWindow();
-                        videoProcess = null;
+                        _videoProcess.CloseMainWindow();
+                        _videoProcess = null;
                     }
                     catch (InvalidOperationException)
                     {
                         // expected if the process isn't there.
+                        Logger.LogComment("[INFO]: Le processus du player vidéo n'est pas rattaché");
                     }
                     catch (Exception exc)
                     {
@@ -145,7 +145,7 @@ namespace Dynaframe3
                     // -q quiets this down in case omxplayer isn't running
 
                     Helpers.RunProcess("killall", "-q -9 omxplayer.bin");
-                    videoProcess = null;
+                    _videoProcess = null;
 
                 }
 
@@ -156,6 +156,8 @@ namespace Dynaframe3
                 // completes for instance
             }
         }
+
+        public bool IsPlaying { get { return _isPlaying; } }
 
     }
 }

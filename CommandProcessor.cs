@@ -146,11 +146,12 @@ namespace Dynaframe3
 
             // We have to do a bit of logic to figure out what is the 'closest' we can come to this file on this frame
             // This next call is where the magic happens for going from another frames file to matching on this frame
-            string localFile = handleMainWindow.playListEngine.ConvertFileNameToLocal(filename);
+            //string localFile = handleMainWindow.playListEngine.ConvertFileNameToLocal(filename);
 
             Logger.LogComment("SYNC: Converted it to: " + filename);
-            handleMainWindow.PlayFile(localFile);
+            //handleMainWindow.PlayFile(localFile);
         }
+        
         public static void ProcessCommand(string command)
         {
             Logger.LogComment("Command recieved: " + command);
